@@ -2,63 +2,65 @@
 
 set -e
 
-echo "[+] Memperbarui paket..."
+echo "[+] Updating package index..."
 sudo apt update -y
 sudo apt install -y curl wget git unzip jq whois
 
-echo "[+] Menginstal Go (jika belum ada)..."
-if ! command -v go &> /dev/null; then
-    wget https://go.dev/dl/go1.22.3.linux-amd64.tar.gz
-    sudo rm -rf /usr/local/go
-    sudo tar -C /usr/local -xzf go1.22.3.linux-amd64.tar.gz
-    echo "export PATH=\$PATH:/usr/local/go/bin" >> ~/.bashrc
-    echo "export GOPATH=\$HOME/go" >> ~/.bashrc
-    source ~/.bashrc
-    rm go1.22.3.linux-amd64.tar.gz
+echo "[+] Setting up Go in user space..."
+
+# Set Go version
+GO_VERSION="1.22.3"
+GO_TAR="go$GO_VERSION.linux-amd64.tar.gz"
+
+# Download and install to ~/go-sdk (not /usr/local)
+if [ ! -d "$HOME/go-sdk" ]; then
+    wget https://go.dev/dl/$GO_TAR
+    rm -rf "$HOME/go-sdk"
+    mkdir -p "$HOME/go-sdk"
+    tar -C "$HOME/go-sdk" --strip-components=1 -xzf $GO_TAR
+    rm $GO_TAR
 fi
 
-export PATH=$PATH:/usr/local/go/bin
-export GOPATH=$HOME/go
+# Set Go paths for user install
+export GOROOT="$HOME/go-sdk"
+export GOPATH="$HOME/go"
+export GOBIN="$GOPATH/bin"
+export PATH="$GOBIN:$GOROOT/bin:$PATH"
 
-echo "[+] Menginstal subfinder..."
-go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
+# Persist paths in .bashrc if not already there
+if ! grep -q 'export GOROOT=' ~/.bashrc; then
+    echo "export GOROOT=\$HOME/go-sdk" >> ~/.bashrc
+    echo "export GOPATH=\$HOME/go" >> ~/.bashrc
+    echo "export GOBIN=\$GOPATH/bin" >> ~/.bashrc
+    echo "export PATH=\$PATH:\$GOBIN:\$GOROOT/bin" >> ~/.bashrc
+fi
 
-echo "[+] Menginstal assetfinder..."
-go install -v github.com/tomnomnom/assetfinder@latest
+# Confirm go works
+"$GOROOT/bin/go" version
 
-echo "[+] Menginstal chaos..."
-go install -v github.com/projectdiscovery/chaos-client/cmd/chaos@latest
+install_tool() {
+    if ! command -v "$1" &> /dev/null; then
+        echo "[+] Installing $1..."
+        "$GOROOT/bin/go" install -v "$2"@latest
+    else
+        echo "[✓] $1 already installed at $(which $1)"
+    fi
+}
 
-echo "[+] Menginstal github-subdomains..."
-go install -v github.com/gwen001/github-subdomains@latest
+echo "[+] Installing recon tools into ~/go/bin..."
 
-echo "[+] Menginstal shodan CLI..."
-go install -v github.com/shodan-io/shodan/cli/shodan@latest
+install_tool subfinder github.com/projectdiscovery/subfinder/v2/cmd/subfinder
+install_tool assetfinder github.com/tomnomnom/assetfinder
+install_tool chaos github.com/projectdiscovery/chaos-client/cmd/chaos
+install_tool github-subdomains github.com/gwen001/github-subdomains
+install_tool shodan github.com/shodan-io/shodan/cli/shodan
+install_tool dnsx github.com/projectdiscovery/dnsx/cmd/dnsx
+install_tool naabu github.com/projectdiscovery/naabu/v2/cmd/naabu
+install_tool httpx github.com/projectdiscovery/httpx/cmd/httpx
+install_tool nuclei github.com/projectdiscovery/nuclei/v3/cmd/nuclei
+install_tool gau github.com/lc/gau/v2/cmd/gau
+install_tool waybackurls github.com/tomnomnom/waybackurls
+install_tool subzy github.com/LukaSikic/subzy
+install_tool katana github.com/projectdiscovery/katana/cmd/katana
 
-echo "[+] Menginstal dnsx..."
-go install -v github.com/projectdiscovery/dnsx/cmd/dnsx@latest
-
-echo "[+] Menginstal naabu..."
-go install -v github.com/projectdiscovery/naabu/v2/cmd/naabu@latest
-
-echo "[+] Menginstal httpx..."
-go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest
-
-echo "[+] Menginstal nuclei..."
-go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
-
-echo "[+] Menginstal gau..."
-go install -v github.com/lc/gau/v2/cmd/gau@latest
-
-echo "[+] Menginstal waybackurls..."
-go install -v github.com/tomnomnom/waybackurls@latest
-
-echo "[+] Menginstal subzy..."
-go install -v github.com/LukaSikic/subzy@latest
-
-echo "[+] Menginstal katana..."
-go install -v github.com/projectdiscovery/katana/cmd/katana@latest
-
-echo "[✔] Semua tools berhasil diinstal ke $GOPATH/bin. Tambahkan ke PATH jika belum."
-echo "export PATH=\$PATH:\$HOME/go/bin" >> ~/.bashrc
-source ~/.bashrc
+echo "[✓] All tools are installed in ~/go/bin/"
