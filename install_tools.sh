@@ -10,7 +10,7 @@ warn()    { echo -e "\033[1;33m[WARN]\033[0m $1"; }
 # === SYSTEM PREP ===
 info "Installing core system dependencies..."
 sudo apt update -y
-sudo apt install -y curl wget git unzip jq whois
+sudo apt install -y curl wget git unzip jq whois libpcap-dev
 
 # === GO CHECK & CONDITIONAL INSTALL ===
 MIN_GO_VERSION="1.20"
@@ -92,11 +92,23 @@ install_shodan() {
 }
 
 
-if go_needs_update; then
-    info "Installing or updating Go (version <$MIN_GO_VERSION or not found)..."
-    ARCH=$(uname -m)
-    PLATFORM="linux"
+install_go_if_needed() {
+    MIN_GO_VERSION="1.20"
 
+    # Extract current version (if exists)
+    if command -v go &> /dev/null; then
+        CURRENT=$(go version | awk '{print $3}' | sed 's/go//')
+        if [ "$(printf '%s\n' "$MIN_GO_VERSION" "$CURRENT" | sort -V | head -n1)" = "$MIN_GO_VERSION" ]; then
+            success "Go version $CURRENT is already installed"
+            return
+        else
+            warn "Go version $CURRENT is outdated, upgrading..."
+        fi
+    else
+        info "Go is not installed, proceeding with installation..."
+    fi
+
+    ARCH=$(uname -m)
     case "$ARCH" in
         x86_64) ARCH=amd64 ;;
         aarch64 | arm64) ARCH=arm64 ;;
@@ -104,21 +116,32 @@ if go_needs_update; then
     esac
 
     GO_VERSION="1.22.3"
-    GO_TAR="go${GO_VERSION}.${PLATFORM}-${ARCH}.tar.gz"
+    GO_TAR="go${GO_VERSION}.linux-${ARCH}.tar.gz"
 
-    wget "https://go.dev/dl/${GO_TAR}"
+    wget https://go.dev/dl/$GO_TAR
     sudo rm -rf /usr/local/go
     sudo tar -C /usr/local -xzf "$GO_TAR"
     rm "$GO_TAR"
 
+    # Set PATH immediately
     export PATH=$PATH:/usr/local/go/bin
-    echo "export PATH=\$PATH:/usr/local/go/bin" >> ~/.bashrc
-    source ~/.bashrc
-else
-    success "Go version is sufficient (>= $MIN_GO_VERSION)"
-fi
+
+    # Add to /etc/profile for all users
+    if ! grep -q "/usr/local/go/bin" /etc/profile; then
+        echo 'export PATH=$PATH:/usr/local/go/bin' | sudo tee -a /etc/profile > /dev/null
+    fi
+
+    # Add for root user explicitly if script run as root
+    if [ "$EUID" -eq 0 ] && ! grep -q "/usr/local/go/bin" ~/.bashrc; then
+        echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
+    fi
+
+    success "Go $GO_VERSION installed and added to PATH"
+}
+
 
 # === SET GO ENV VARIABLES ===
+install_go_if_needed
 export GOPATH="$HOME/go"
 export GOBIN="$GOPATH/bin"
 export PATH="$PATH:$GOBIN"
@@ -159,4 +182,27 @@ install_tool katana github.com/projectdiscovery/katana/cmd/katana
 install_linkfinder
 install_xnlinkfinder
 
-success "All tools installed and ready at ~/go/bin/"
+# === Post-Installation TOOLS ===
+echo "=============================================================="
+echo -e "\033[1;33m⚠️  POST-INSTALLATION REMINDERS — Manual Setup Required:\033[0m"
+echo ""
+echo -e "🔑 \033[1;36mSHODAN\033[0m"
+echo "   → Run: shodan init YOUR_API_KEY"
+echo "   → Get your API key from: https://account.shodan.io/"
+
+echo ""
+echo -e "🔑 \033[1;36mCHAOS (ProjectDiscovery)\033[0m"
+echo "   → Requires CHAOS_API_KEY in your environment"
+echo "   → Export it like this:"
+echo "      export CHAOS_KEY='your-key-here'"
+
+echo ""
+echo -e "🔑 \033[1;36mGITHUB-SUBDOMAINS\033[0m"
+echo "   → Requires GitHub API token with 'repo' scope"
+echo "   → Export it as:"
+echo "      export GITHUB_TOKEN='your-token-here'"
+
+echo ""
+echo -e "💡 \033[1;32mDONE:\033[0m All tools are installed to ~/go/bin/ and ~/.local/bin/"
+echo "   If commands aren't found, restart terminal or run: source ~/.bashrc"
+echo "=============================================================="
