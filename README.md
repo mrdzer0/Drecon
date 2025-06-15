@@ -1,7 +1,7 @@
 # 🕵️‍♂️ Drecon — Deep Reconnaissance Automation Toolkit
 
 <p align="center">
-  <img src="drecon_banner.png" alt="Drecon Banner" width="100%">
+  <img src="banner.png" alt="Drecon Banner" width="100%">
 </p>
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)

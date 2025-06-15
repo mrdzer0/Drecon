@@ -64,23 +64,22 @@ install_linkfinder() {
 install_xnlinkfinder() {
     if ! command -v xnlinkfinder &> /dev/null; then
         info "Installing xnLinkFinder via pipx..."
-        
+
         # Ensure pipx is installed
+        sudo apt install -y pipx python3-venv
         export PATH="$HOME/.local/bin:$PATH"
         if ! grep -q "$HOME/.local/bin" ~/.bashrc; then
             echo 'export PATH=$PATH:$HOME/.local/bin' >> ~/.bashrc
         fi
 
-        # Use pipx to install safely
-        pipx install git+https://github.com/xnl-h4ck3r/xnLinkFinder.git
+        # Use pipx with --spec
+        pipx install --spec git+https://github.com/xnl-h4ck3r/xnLinkFinder.git xnlinkfinder
 
         success "xnLinkFinder installed successfully via pipx"
     else
         success "xnLinkFinder is already installed"
     fi
 }
-
-
 
 install_shodan() {
     if ! command -v shodan &> /dev/null; then
