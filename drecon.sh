@@ -60,7 +60,6 @@ case "$preset" in
   bugbounty)
     export NUCLEI_SEVERITY="medium,high,critical"
     export NUCLEI_TAGS="cve,exposure,token,misconfig"
-    export NUCLEI_THREADS=50
     export NUCLEI_RATE_LIMIT=50
     export NUCLEI_TIMEOUT=10
     export NUCLEI_RETRIES=2
@@ -69,7 +68,6 @@ case "$preset" in
   stealth)
     export NUCLEI_SEVERITY="high,critical"
     export NUCLEI_TAGS="cve"
-    export NUCLEI_THREADS=10
     export NUCLEI_RATE_LIMIT=10
     export NUCLEI_TIMEOUT=15
     export NUCLEI_RETRIES=1
@@ -78,7 +76,6 @@ case "$preset" in
   fingerprinting)
     export NUCLEI_SEVERITY="info,low"
     export NUCLEI_TAGS="tech,osint"
-    export NUCLEI_THREADS=20
     export NUCLEI_RATE_LIMIT=30
     export NUCLEI_TIMEOUT=8
     export NUCLEI_RETRIES=2
@@ -237,12 +234,10 @@ run_nuclei() {
   cmd="nuclei -l $merged_httpx -jsonl -o $nuclei_json"
   [[ -n "$NUCLEI_SEVERITY" ]] && cmd+=" -severity $NUCLEI_SEVERITY"
   [[ -n "$NUCLEI_TAGS" ]] && cmd+=" -tags $NUCLEI_TAGS"
-  [[ -n "$NUCLEI_THREADS" ]] && cmd+=" -t $NUCLEI_THREADS"
   [[ -n "$NUCLEI_RATE_LIMIT" ]] && cmd+=" -rl $NUCLEI_RATE_LIMIT"
   [[ -n "$NUCLEI_TIMEOUT" ]] && cmd+=" -timeout $NUCLEI_TIMEOUT"
   [[ -n "$NUCLEI_RETRIES" ]] && cmd+=" -retries $NUCLEI_RETRIES"
   [[ -n "$NUCLEI_USER_AGENT" ]] && cmd+=" -H 'User-Agent: $NUCLEI_USER_AGENT'"
-  [[ -n "$NUCLEI_PROXY" ]] && cmd+=" -proxy $NUCLEI_PROXY"
   
   run "$cmd"
   info "Nuclei results saved: $(wc -l < $nuclei_json)"
