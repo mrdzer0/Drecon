@@ -35,29 +35,37 @@ go_needs_update() {
 
 install_linkfinder() {
     if ! command -v linkfinder &> /dev/null; then
-        info "Installing LinkFinder..."
+        info "Installing LinkFinder safely using virtualenv..."
 
-        # Remove any broken old symlink
-        sudo rm -f /usr/local/bin/linkfinder
+        # Prepare temp install folder
+        LINKFOLDER="$HOME/.local/share/linkfinder"
+        mkdir -p "$LINKFOLDER"
 
-        # Clone and install dependencies
+        # Clone repo
         git clone https://github.com/GerbenJavado/LinkFinder.git /tmp/LinkFinder
-        pip install --user -r /tmp/LinkFinder/requirements.txt
 
-        # Copy to a safe permanent location
-        mkdir -p ~/.local/share/linkfinder
-        cp /tmp/LinkFinder/linkfinder.py ~/.local/share/linkfinder/linkfinder.py
+        # Create virtual environment
+        python3 -m venv "$LINKFOLDER/venv"
+        source "$LINKFOLDER/venv/bin/activate"
 
-        # Create wrapper script
-        echo -e "#!/bin/bash\npython3 ~/.local/share/linkfinder/linkfinder.py \"\$@\"" | sudo tee /usr/local/bin/linkfinder > /dev/null
+        # Install requirements inside virtualenv
+        pip install -r /tmp/LinkFinder/requirements.txt
+
+        # Copy main script into persistent directory
+        cp /tmp/LinkFinder/linkfinder.py "$LINKFOLDER/"
+
+        # Create wrapper executable
+        echo -e "#!/bin/bash\nsource \"$LINKFOLDER/venv/bin/activate\" && python3 \"$LINKFOLDER/linkfinder.py\" \"\$@\"" \
+            | sudo tee /usr/local/bin/linkfinder > /dev/null
         sudo chmod +x /usr/local/bin/linkfinder
 
-        # Clean up temp folder
+        # Clean up
+        deactivate
         rm -rf /tmp/LinkFinder
 
-        success "LinkFinder installed and usable as 'linkfinder'"
+        success "LinkFinder installed and callable as 'linkfinder'"
     else
-        success "LinkFinder is already available as 'linkfinder'"
+        success "LinkFinder is already installed"
     fi
 }
 
