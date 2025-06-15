@@ -2,52 +2,80 @@
 
 set -e
 
-echo "[+] Updating package index..."
+# === UTILITY FUNCTIONS ===
+info()    { echo -e "\033[1;34m[INFO]\033[0m $1"; }
+success() { echo -e "\033[1;32m[SUCCESS]\033[0m $1"; }
+warn()    { echo -e "\033[1;33m[WARN]\033[0m $1"; }
+
+# === SYSTEM PREP ===
+info "Installing core system dependencies..."
 sudo apt update -y
 sudo apt install -y curl wget git unzip jq whois
 
-echo "[+] Setting up Go in user space..."
+# === GO CHECK & CONDITIONAL INSTALL ===
+MIN_GO_VERSION="1.20"
 
-# Set Go version
-GO_VERSION="1.22.3"
-GO_TAR="go$GO_VERSION.linux-amd64.tar.gz"
+go_needs_update() {
+    local current
+    current=$(go version 2>/dev/null | awk '{print $3}' | sed 's/go//')
+    if [[ -z "$current" ]]; then
+        return 0  # Go not installed
+    fi
+    # Compare versions
+    [ "$(printf '%s\n' "$MIN_GO_VERSION" "$current" | sort -V | head -n1)" != "$MIN_GO_VERSION" ]
+}
 
-# Download and install to ~/go-sdk (not /usr/local)
-if [ ! -d "$HOME/go-sdk" ]; then
-    wget https://go.dev/dl/$GO_TAR
-    rm -rf "$HOME/go-sdk"
-    mkdir -p "$HOME/go-sdk"
-    tar -C "$HOME/go-sdk" --strip-components=1 -xzf $GO_TAR
-    rm $GO_TAR
+if go_needs_update; then
+    info "Installing or updating Go (version <$MIN_GO_VERSION or not found)..."
+    ARCH=$(uname -m)
+    PLATFORM="linux"
+
+    case "$ARCH" in
+        x86_64) ARCH=amd64 ;;
+        aarch64 | arm64) ARCH=arm64 ;;
+        *) echo "Unsupported architecture: $ARCH" && exit 1 ;;
+    esac
+
+    GO_VERSION="1.22.3"
+    GO_TAR="go${GO_VERSION}.${PLATFORM}-${ARCH}.tar.gz"
+
+    wget "https://go.dev/dl/${GO_TAR}"
+    sudo rm -rf /usr/local/go
+    sudo tar -C /usr/local -xzf "$GO_TAR"
+    rm "$GO_TAR"
+
+    export PATH=$PATH:/usr/local/go/bin
+    echo "export PATH=\$PATH:/usr/local/go/bin" >> ~/.bashrc
+    source ~/.bashrc
+else
+    success "Go version is sufficient (>= $MIN_GO_VERSION)"
 fi
 
-# Set Go paths for user install
-export GOROOT="$HOME/go-sdk"
+# === SET GO ENV VARIABLES ===
 export GOPATH="$HOME/go"
 export GOBIN="$GOPATH/bin"
-export PATH="$GOBIN:$GOROOT/bin:$PATH"
+export PATH="$PATH:$GOBIN"
 
-# Persist paths in .bashrc if not already there
-if ! grep -q 'export GOROOT=' ~/.bashrc; then
-    echo "export GOROOT=\$HOME/go-sdk" >> ~/.bashrc
+if ! grep -q 'export GOBIN=' ~/.bashrc; then
     echo "export GOPATH=\$HOME/go" >> ~/.bashrc
     echo "export GOBIN=\$GOPATH/bin" >> ~/.bashrc
-    echo "export PATH=\$PATH:\$GOBIN:\$GOROOT/bin" >> ~/.bashrc
+    echo "export PATH=\$PATH:\$GOBIN" >> ~/.bashrc
 fi
 
-# Confirm go works
-"$GOROOT/bin/go" version
-
+# === TOOL INSTALLATION FUNCTION ===
 install_tool() {
-    if ! command -v "$1" &> /dev/null; then
-        echo "[+] Installing $1..."
-        "$GOROOT/bin/go" install -v "$2"@latest
+    local name=$1
+    local pkg=$2
+    if ! command -v "$name" &> /dev/null; then
+        info "Installing $name..."
+        go install -v "$pkg@latest"
     else
-        echo "[✓] $1 already installed at $(which $1)"
+        success "$name is already installed"
     fi
 }
 
-echo "[+] Installing recon tools into ~/go/bin..."
+# === INSTALL TOOLS ===
+info "Installing recon tools into ~/go/bin/..."
 
 install_tool subfinder github.com/projectdiscovery/subfinder/v2/cmd/subfinder
 install_tool assetfinder github.com/tomnomnom/assetfinder
@@ -63,4 +91,4 @@ install_tool waybackurls github.com/tomnomnom/waybackurls
 install_tool subzy github.com/LukaSikic/subzy
 install_tool katana github.com/projectdiscovery/katana/cmd/katana
 
-echo "[✓] All tools are installed in ~/go/bin/"
+success "All tools installed and ready at ~/go/bin/"
