@@ -62,7 +62,7 @@ install_linkfinder() {
 }
 
 install_xnlinkfinder() {
-    if ! command -v xnlinkfinder &> /dev/null; then
+    if ! command -v xnLinkFinder &> /dev/null; then
         info "Installing xnLinkFinder via pipx..."
 
         # Ensure pipx is installed
