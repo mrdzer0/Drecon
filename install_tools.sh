@@ -82,21 +82,29 @@ install_xnlinkfinder() {
 }
 
 install_shodan() {
-    if ! command -v shodan &> /dev/null; then
-        info "Installing Shodan CLI via pip..."
-        pip install --user shodan
+    if ! command -v shodan &> /dev/null || [[ "$(command -v shodan)" == "/usr/bin/shodan" ]]; then
+        info "Installing Shodan CLI via pipx..."
 
-        # Ensure pip user bin is in PATH
-        PIP_BIN=$(python3 -m site --user-base)/bin
-        if ! echo "$PATH" | grep -q "$PIP_BIN"; then
-            echo "export PATH=\$PATH:$PIP_BIN" >> ~/.bashrc
-            export PATH=$PATH:$PIP_BIN
-            success "Added $PIP_BIN to PATH"
+        # Remove broken APT version if it exists
+        if [[ -f "/usr/bin/shodan" ]]; then
+            warn "Removing outdated APT-installed shodan..."
+            sudo apt remove -y python3-shodan
+            sudo rm -f /usr/bin/shodan
         fi
 
-        success "Shodan CLI installed and available as 'shodan'"
+        # Ensure pipx is installed
+        sudo apt install -y pipx python3-venv
+        export PATH="$HOME/.local/bin:$PATH"
+        if ! grep -q "$HOME/.local/bin" ~/.bashrc; then
+            echo 'export PATH=$PATH:$HOME/.local/bin' >> ~/.bashrc
+        fi
+
+        # Install fresh, isolated version
+        pipx install shodan
+
+        success "Shodan CLI installed and globally available via pipx"
     else
-        success "Shodan CLI is already available as 'shodan'"
+        success "Shodan CLI is already installed and valid"
     fi
 }
 
