@@ -91,7 +91,7 @@ case "$preset" in
 esac
 
 # ----------- CHECK DEPENDENCIES -----------
-REQUIRED_TOOLS=(subfinder assetfinder chaos jq whois curl unzip github-subdomains shodan dnsx naabu httpx nuclei gau waybackurls subzy katana linkfinder xnlinkfinder)
+REQUIRED_TOOLS=(subfinder assetfinder chaos jq whois curl unzip github-subdomains shodan dnsx naabu httpx nuclei gau waybackurls subzy katana linkfinder xnLinkFinder)
 for tool in "${REQUIRED_TOOLS[@]}"; do
   check_tool "$tool"
 done
