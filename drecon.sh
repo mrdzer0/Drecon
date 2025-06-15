@@ -379,11 +379,14 @@ run_enhanced_url_indicators() {
     [token]='token=|apikey=|secret=|access[_-]?token=|bearer'
   )
 
-  for keyword in "${!patterns[@]}"; do
-    grep -iE "${patterns[$keyword]}" "$input_file" | while read -r line; do
-      echo "$keyword - $line" >> "$reasons_file"
+  while IFS=$'\n' read -r line; do
+    for keyword in "${!patterns[@]}"; do
+      if [[ "$line" =~ ${patterns[$keyword]} ]]; then
+        echo "$keyword - $line" >> "$reasons_file"
+        break
+      fi
     done
-  done
+  done < "$input_file"
 
   [[ -s "$reasons_file" ]] && info "Tagged URLs saved to: $reasons_file"
 }
