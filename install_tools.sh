@@ -12,14 +12,6 @@ info "Installing core system dependencies..."
 sudo apt update -y
 sudo apt install -y curl wget git unzip jq whois libpcap-dev build-essential libpcap-dev pkg-config python3 python3-pip pipx python3-venv
 
-# Ensure ~/.local/bin (pip user installs) is in PATH
-PIP_BIN="$HOME/.local/bin"
-if ! echo "$PATH" | grep -q "$PIP_BIN"; then
-    export PATH="$PATH:$PIP_BIN"
-    echo "export PATH=\$PATH:$PIP_BIN" >> ~/.bashrc
-    success "Added $PIP_BIN to PATH"
-fi
-
 # === GO CHECK & CONDITIONAL INSTALL ===
 MIN_GO_VERSION="1.23"
 
@@ -71,30 +63,23 @@ install_linkfinder() {
 
 install_xnlinkfinder() {
     if ! command -v xnlinkfinder &> /dev/null; then
-        info "Installing xnLinkFinder in a virtual environment..."
+        info "Installing xnLinkFinder via pipx..."
+        
+        # Ensure pipx is installed
+        export PATH="$HOME/.local/bin:$PATH"
+        if ! grep -q "$HOME/.local/bin" ~/.bashrc; then
+            echo 'export PATH=$PATH:$HOME/.local/bin' >> ~/.bashrc
+        fi
 
-        # Prepare persistent install directory
-        XNFOLDER="$HOME/.local/share/xnlinkfinder"
-        mkdir -p "$XNFOLDER"
+        # Use pipx to install safely
+        pipx install git+https://github.com/xnl-h4ck3r/xnLinkFinder.git
 
-        # Create virtual environment
-        python3 -m venv "$XNFOLDER/venv"
-        source "$XNFOLDER/venv/bin/activate"
-
-        # Install tool into venv
-        pip install xnLinkFinder
-
-        # Create wrapper script globally
-        echo -e "#!/bin/bash\nsource \"$XNFOLDER/venv/bin/activate\" && xnlinkfinder \"\$@\"" \
-            | sudo tee /usr/local/bin/xnlinkfinder > /dev/null
-        sudo chmod +x /usr/local/bin/xnlinkfinder
-
-        deactivate
-        success "xnLinkFinder installed and callable as 'xnlinkfinder'"
+        success "xnLinkFinder installed successfully via pipx"
     else
         success "xnLinkFinder is already installed"
     fi
 }
+
 
 
 install_shodan() {
@@ -219,19 +204,16 @@ echo -e "🔑 \033[1;36mSHODAN\033[0m"
 echo "   → Run: shodan init YOUR_API_KEY"
 echo "   → Get your API key from: https://account.shodan.io/"
 
-echo ""
 echo -e "🔑 \033[1;36mCHAOS (ProjectDiscovery)\033[0m"
 echo "   → Requires CHAOS_API_KEY in your environment"
 echo "   → Export it like this:"
 echo "      export CHAOS_KEY='your-key-here'"
 
-echo ""
 echo -e "🔑 \033[1;36mGITHUB-SUBDOMAINS\033[0m"
 echo "   → Requires GitHub API token with 'repo' scope"
 echo "   → Export it as:"
 echo "      export GITHUB_TOKEN='your-token-here'"
 
-echo ""
 echo -e "💡 \033[1;32mDONE:\033[0m All tools are installed to ~/go/bin/ and ~/.local/bin/"
 echo "   If commands aren't found, restart terminal or run: source ~/.bashrc"
 echo "=============================================================="
