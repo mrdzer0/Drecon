@@ -243,7 +243,6 @@ run_nuclei() {
   [[ -n "$NUCLEI_RETRIES" ]] && cmd+=" -retries $NUCLEI_RETRIES"
   [[ -n "$NUCLEI_USER_AGENT" ]] && cmd+=" -H 'User-Agent: $NUCLEI_USER_AGENT'"
   [[ -n "$NUCLEI_PROXY" ]] && cmd+=" -proxy $NUCLEI_PROXY"
-  cmd+=" -random-agent"
   
   run "$cmd"
   info "Nuclei results saved: $(wc -l < $nuclei_json)"
