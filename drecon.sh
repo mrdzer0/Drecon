@@ -34,6 +34,7 @@ fi
 
 outdir="output/$domain"
 final_dir="$outdir/final"
+raw_dir="$outdir/raw"
 mkdir -p "$outdir" "$final_dir"
 final_output="$outdir/subdomain.txt"
 log_file="$outdir/scan.log"
@@ -177,7 +178,7 @@ run_crtsh() {
 
 # ----------- DNSX ENHANCED -----------
 run_dnsx() {
-  local json="$outdir/dnsx_records.json" cname="$outdir/dnsx_cnames.txt" takeover="$outdir/dnsx_potential_takeovers.txt"More actions
+  local json="$outdir/dnsx_records.json" cname="$outdir/dnsx_cnames.txt" takeover="$outdir/dnsx_potential_takeovers.txt" 
   run "dnsx -l $final_output -a -cname -resp -json -silent -o $json"
   [[ -s "$json" ]] || { info "DNSX returned no usable data"; return; }
   jq -r 'select(.cname != null) | "\(.host)\t\(.cname)"' "$json" > "$cname" 2>>"$log_file"
@@ -231,9 +232,9 @@ run_nuclei() {
 
   jq -r '.url' "$outdir/httpx_subdomain_results.json" "$outdir/httpx_portscan_results.json" | sort -u > "$merged_httpx"
 
-  cmd="nuclei -l $merged_httpx -jsonl -o $nuclei_json -id waf-detect"
-  # [[ -n "$NUCLEI_SEVERITY" ]] && cmd+=" -severity $NUCLEI_SEVERITY"
-  # [[ -n "$NUCLEI_TAGS" ]] && cmd+=" -tags $NUCLEI_TAGS"
+  cmd="nuclei -l $merged_httpx -jsonl -o $nuclei_json"
+  [[ -n "$NUCLEI_SEVERITY" ]] && cmd+=" -severity $NUCLEI_SEVERITY"
+  [[ -n "$NUCLEI_TAGS" ]] && cmd+=" -tags $NUCLEI_TAGS"
   [[ -n "$NUCLEI_RATE_LIMIT" ]] && cmd+=" -rl $NUCLEI_RATE_LIMIT"
   [[ -n "$NUCLEI_TIMEOUT" ]] && cmd+=" -timeout $NUCLEI_TIMEOUT"
   [[ -n "$NUCLEI_RETRIES" ]] && cmd+=" -retries $NUCLEI_RETRIES"
@@ -287,7 +288,7 @@ run_gau() {
 run_subzy() {
   info "Running Subzy..."
   run "subzy run --targets $final_output --verify_ssl --hide_fails --output $outdir/subzy_subdomaintakeover.json"
-  info "Subzy completed: $(wc -l < $outdir/subzy.json) results"
+  info "Subzy completed: $(wc -l < $outdir/subzy_subdomaintakeover.json) results"
 }
 
 # ----------- KATANA -----------
@@ -335,6 +336,8 @@ run_url_analysis() {
     linkfinder -i "$outdir/jsparsed/$fname.js" -o cli >> "$sensitive_files" 2>/dev/null || true
     xnLinkFinder -i "$outdir/jsparsed/$fname.js" >> "$xnf_file" 2>/dev/null || true
   done < "$js_files"
+
+  mv "$outdir/gau.txt", "$outdir/waybackurls.txt", "$outdir/katana.txt", "$outdir/httpx_subdomain_results.json", "$outdir/httpx_portscan_results.json" "$raw_dir/" 2>/dev/null || true 
 
   # CATEGORIZE URLS
   mkdir -p "$outdir/urls_category"
