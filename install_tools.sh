@@ -25,6 +25,45 @@ go_needs_update() {
     [ "$(printf '%s\n' "$MIN_GO_VERSION" "$current" | sort -V | head -n1)" != "$MIN_GO_VERSION" ]
 }
 
+install_linkfinder() {
+    if ! command -v linkfinder &> /dev/null; then
+        info "Installing LinkFinder..."
+        git clone https://github.com/GerbenJavado/LinkFinder.git /tmp/LinkFinder
+        cd /tmp/LinkFinder
+        pip install -r requirements.txt
+
+        sudo ln -sf "$(pwd)/linkfinder.py" /usr/local/bin/linkfinder
+        chmod +x /usr/local/bin/linkfinder
+
+        cd ~
+        rm -rf /tmp/LinkFinder
+        success "LinkFinder installed and symlinked to /usr/local/bin/linkfinder"
+    else
+        success "LinkFinder is already available as 'linkfinder'"
+    fi
+}
+
+install_xnlinkfinder() {
+    if ! command -v xnlinkfinder &> /dev/null; then
+        info "Installing xnLinkFinder via pip..."
+        pip install xnLinkFinder
+
+        # Ensure pip bin path is in PATH
+        PIP_BIN=$(python3 -m site --user-base)/bin
+        if ! echo "$PATH" | grep -q "$PIP_BIN"; then
+            echo "export PATH=\$PATH:$PIP_BIN" >> ~/.bashrc
+            export PATH=$PATH:$PIP_BIN
+            success "Added $PIP_BIN to PATH"
+        fi
+
+        success "xnLinkFinder installed and available as 'xnlinkfinder'"
+    else
+        success "xnLinkFinder is already available as 'xnlinkfinder'"
+    fi
+}
+
+
+
 if go_needs_update; then
     info "Installing or updating Go (version <$MIN_GO_VERSION or not found)..."
     ARCH=$(uname -m)
@@ -90,5 +129,7 @@ install_tool gau github.com/lc/gau/v2/cmd/gau
 install_tool waybackurls github.com/tomnomnom/waybackurls
 install_tool subzy github.com/LukaSikic/subzy
 install_tool katana github.com/projectdiscovery/katana/cmd/katana
+install_linkfinder
+install_xnlinkfinder
 
 success "All tools installed and ready at ~/go/bin/"

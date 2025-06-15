@@ -4,14 +4,25 @@ set -e
 start_time=$(date +%s)  # Start time
 # ----------- BASIC SETUP -----------
 usage() {
-  echo "Usage: $0 -d <domain>"
+  echo "Usage: $0 -d <domain> [--preset <bugbounty|stealth|fingerprinting>]"
   exit 1
 }
+preset="bugbounty"
 
-while getopts ":d:" opt; do
-  case $opt in
-    d) domain=$OPTARG ;;
-    *) usage ;;
+domain=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -d)
+      domain="$2"
+      shift 2
+      ;;
+    --preset)
+      preset="$2"
+      shift 2
+      ;;
+    *)
+      usage
+      ;;
   esac
 done
 
@@ -19,7 +30,7 @@ if [[ -z "$domain" ]]; then
   usage
 fi
 
-nuclei_param="-a"
+
 outdir="output/$domain"
 final_dir="$outdir/final"
 mkdir -p "$outdir" "$final_dir"
@@ -44,11 +55,53 @@ check_tool() {
   fi
 }
 
+# ----------- PRESET MODE -----------
+case "$preset" in
+  bugbounty)
+    export NUCLEI_SEVERITY="medium,high,critical"
+    export NUCLEI_TAGS="cve,exposure,token,misconfig"
+    export NUCLEI_THREADS=50
+    export NUCLEI_RATE_LIMIT=50
+    export NUCLEI_TIMEOUT=10
+    export NUCLEI_RETRIES=2
+    export NUCLEI_USER_AGENT="Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+    ;;
+  stealth)
+    export NUCLEI_SEVERITY="high,critical"
+    export NUCLEI_TAGS="cve"
+    export NUCLEI_THREADS=10
+    export NUCLEI_RATE_LIMIT=10
+    export NUCLEI_TIMEOUT=15
+    export NUCLEI_RETRIES=1
+    export NUCLEI_USER_AGENT="Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36"
+    ;;
+  fingerprinting)
+    export NUCLEI_SEVERITY="info,low"
+    export NUCLEI_TAGS="tech,osint"
+    export NUCLEI_THREADS=20
+    export NUCLEI_RATE_LIMIT=30
+    export NUCLEI_TIMEOUT=8
+    export NUCLEI_RETRIES=2
+    export NUCLEI_USER_AGENT="Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
+    ;;
+  *)
+    echo "[!] Unknown preset: $preset"
+    exit 1
+    ;;
+esac
+
 # ----------- CHECK DEPENDENCIES -----------
-REQUIRED_TOOLS=(subfinder assetfinder chaos jq whois curl unzip github-subdomains shodan dnsx naabu httpx nuclei gau waybackurls subzy katana)
+REQUIRED_TOOLS=(subfinder assetfinder chaos jq whois curl unzip github-subdomains shodan dnsx naabu httpx nuclei gau waybackurls subzy katana linkfinder xnlinkfinder)
 for tool in "${REQUIRED_TOOLS[@]}"; do
   check_tool "$tool"
 done
+
+# ----------- Load .env if exists -----------
+if [[ -f ".env" ]]; then
+  set -o allexport
+  source .env
+  set +o allexport
+fi
 
 # ----------- LOGGED RUN WRAPPER -----------
 run() {
@@ -140,9 +193,9 @@ run_dnsx() {
 
 # ----------- NAABU WEB PORT SCAN -----------
 run_naabu() {
-  #local ports="7,9,13,21,22,23,25,26,37,53,66,79,80,81,82,83,84,85,88,106,110,111,113,119,135,139,143,144,179,199,443,444,457,465,513,514,515,543,544,548,554,587,631,646,7647,8000,8001,8008,8080,8081,8085,8088,8089,8090,873,8880,8888,9000,9001,9002,9080,9100,9200,9300,9443,990,993,995,9999,10000,10001,1024,1025,1026,1027,1028,1029,10443,10444,1080,1100,11000,1110,1234,12345,1241,1352,1433,1434,1521,1720,1723,1755,1900,19000,1944,2000,2001,20000,2049,20720,2121,2301,2375,2376,2717,3000,3001,3002,30821,3128,32768,3306,3389,3986,4000,4001,4002,4100,4567,4899,49152-49157,5000,5001,5002,5009,5051,5060,5101,5190,5357,5432,5601,5602,5631,5666,5800,5801,5802,5900,5985,6000,6001,6346,6347,6646,7000,7001,7002,7070,7170,7777,8222,8333,8443,8444,8500,8501,8765,8800,9443,9444,9999,10000,10444,11000,20000,20720,30821,65535"
+  local ports="7,9,13,21,22,23,25,26,37,53,66,79,80,81,82,83,84,85,88,106,110,111,113,119,135,139,143,144,179,199,443,444,457,465,513,514,515,543,544,548,554,587,631,646,7647,8000,8001,8008,8080,8081,8085,8088,8089,8090,873,8880,8888,9000,9001,9002,9080,9100,9200,9300,9443,990,993,995,9999,10000,10001,1024,1025,1026,1027,1028,1029,10443,10444,1080,1100,11000,1110,1234,12345,1241,1352,1433,1434,1521,1720,1723,1755,1900,19000,1944,2000,2001,20000,2049,20720,2121,2301,2375,2376,2717,3000,3001,3002,30821,3128,32768,3306,3389,3986,4000,4001,4002,4100,4567,4899,49152-49157,5000,5001,5002,5009,5051,5060,5101,5190,5357,5432,5601,5602,5631,5666,5800,5801,5802,5900,5985,6000,6001,6346,6347,6646,7000,7001,7002,7070,7170,7777,8222,8333,8443,8444,8500,8501,8765,8800,9443,9444,9999,10000,10444,11000,20000,20720,30821,65535"
   #local ports="7,9,13,21,22,23,25,26,37,53,66,79,80,81,82,83,84,85,88,106,110,111,113,119,135,139,143,144,179,199,443,444,457,465,513,514,515,543,544,548,554,587,631,646,7647,8000,8001,8008,8080,8081,8085,8089,8090,873,8880,8888,9000,9080,9100,990,993,995,1024,1025,1026,1027,1028,1029,10443,1080,1100,1110,1241,1352,1433,1434,1521,1720,1723,1755,1900,1944,2000,2001,2049,2121,2301,2717,3000,3001,3002,3128,32768,3306,3389,3986,4000,4001,4002,4100,4567,4899,49152-49157,5000,5001,5009,5051,5060,5101,5190,5357,5432,5631,5666,5800,5801,5802,5900,5985,6000,6001,6346,6347,6646,7000,7001,7002,7070,7170,7777,8800,9999,10000,10444,11000,20000,30821"
-  local ports="80,8080"
+  #local ports="80,8080"
   local naabu_json="$outdir/naabu.json"
   local final_output_ports="$outdir/subdomain_port.txt"
 
@@ -180,7 +233,19 @@ run_nuclei() {
   mkdir -p "$nuclei_dir"
 
   jq -r '.url' "$outdir/httpx_subdomain_results.json" "$outdir/httpx_portscan_results.json" | sort -u > "$merged_httpx"
-  run "nuclei -l $merged_httpx -o $nuclei_json -jsonl"
+
+  cmd="nuclei -l $merged_httpx -jsonl -o $nuclei_json"
+  [[ -n "$NUCLEI_SEVERITY" ]] && cmd+=" -severity $NUCLEI_SEVERITY"
+  [[ -n "$NUCLEI_TAGS" ]] && cmd+=" -tags $NUCLEI_TAGS"
+  [[ -n "$NUCLEI_THREADS" ]] && cmd+=" -t $NUCLEI_THREADS"
+  [[ -n "$NUCLEI_RATE_LIMIT" ]] && cmd+=" -rl $NUCLEI_RATE_LIMIT"
+  [[ -n "$NUCLEI_TIMEOUT" ]] && cmd+=" -timeout $NUCLEI_TIMEOUT"
+  [[ -n "$NUCLEI_RETRIES" ]] && cmd+=" -retries $NUCLEI_RETRIES"
+  [[ -n "$NUCLEI_USER_AGENT" ]] && cmd+=" -H 'User-Agent: $NUCLEI_USER_AGENT'"
+  [[ -n "$NUCLEI_PROXY" ]] && cmd+=" -proxy $NUCLEI_PROXY"
+  cmd+=" -random-agent"
+  
+  run "$cmd"
   info "Nuclei results saved: $(wc -l < $nuclei_json)"
   rm -f "$merged_httpx"
   
@@ -246,26 +311,69 @@ run_url_analysis() {
   local js_files="$outdir/javascript_files.txt"
   local sensitive_files="$outdir/sensitive_endpoints.txt"
   local secrets="$outdir/potential_secrets.txt"
+  local params_file="$outdir/parameters.txt"
+  local xnf_file="$outdir/xnlinkfinder.txt"
+
+  # Archive.org URL discovery
+  curl -s "http://web.archive.org/cdx/search/cdx?url=*.$domain/*&output=text&fl=original&collapse=urlkey" | tee "$outdir/archive_urls.txt" >> "$all_urls"
+  sort -u "$all_urls" -o "$all_urls"
 
   cat "$outdir/gau.txt" "$outdir/waybackurls.txt" "$outdir/katana.txt" 2>/dev/null | sort -u > "$all_urls"
+  cat "$outdir/httpx_subdomain_results.json" "$outdir/httpx_portscan_results.json" 2>/dev/null | jq -r '.url' | sort -u >> "$all_urls" 
 
-  grep -Ei '\.js(\?|$)' "$all_urls" > "$js_files" || true
-  grep -Ei '\.(env|git|bak|swp|zip|sql|conf|log)$|/(admin|login|debug|api|config)' "$all_urls" > "$sensitive_files" || true
+  grep -Ei '\.js(\?|$)' "$all_urls" | sort -u > "$js_files" || true
+  # Extract potential endpoint-like strings from JS or URLs
+  grep -Eoi '(/[a-z0-9_-]+){2,}' "$js_files" | sort -u > "$sensitive_files" || true
+  grep -Ei '\.(env|git|bak|swp|zip|sql|conf|log)$|/(admin|login|debug|api|config)' "$all_urls" > "$outdir/leaks.txt" || true
   grep -Ei 'token=|apikey=|secret=|access[_-]?token=|bearer' "$all_urls" > "$secrets" || true
-
+  grep -Eo '\?.*' "$all_urls" | tr '&' '\n' | sed 's/^.*[?&]\([^=]*\)=.*/\1/' | grep -v '^$' | sort -u > "$params_file"
+  
   info "JS files: $(wc -l < "$js_files")"
   info "Sensitive endpoints: $(wc -l < "$sensitive_files")"
   info "Potential secrets: $(wc -l < "$secrets")"
+
+  # LIVE JS FETCH + LinkFinder
+  mkdir -p "$outdir/jsparsed"
+  while read -r jsurl; do
+    curl -s --head "$jsurl" | grep -iq "200 OK" || continue
+    fname=$(echo "$jsurl" | md5sum | cut -d ' ' -f1)
+    curl -m 8 -s "$jsurl" -o "$outdir/jsparsed/$fname.js" || true
+    linkfinder -i "$outdir/jsparsed/$fname.js" -o cli >> "$sensitive_files" 2>/dev/null || true
+    xnLinkFinder -i "$outdir/jsparsed/$fname.js" >> "$xnf_file" 2>/dev/null || true
+  done < "$js_files"
+
+  # CATEGORIZE URLS
+  mkdir -p "$outdir/urls_category"
+  grep "/admin" "$all_urls" > "$outdir/urls_category/admin.txt" 2>/dev/null || true
+  grep "/api" "$all_urls" > "$outdir/urls_category/api.txt" 2>/dev/null || true
+  grep "/login" "$all_urls" > "$outdir/urls_category/login.txt" 2>/dev/null || true
+  grep "/config" "$all_urls" > "$outdir/urls_category/config.txt" 2>/dev/null || true
+
+  info "URLs collected: $(wc -l < "$all_urls")"
+  info "JS files: $(wc -l < "$js_files")"
+  info "Possible endpoints: $(wc -l < "$sensitive_files")"
+  info "Secrets or tokens: $(wc -l < "$secrets")"
+  info "Exposed files/leaks: $(wc -l < "$outdir/leaks.txt")"
+  info "Extracted parameters: $(wc -l < "$params_file")"
+
+  jq -n --slurpfile urls "$all_urls" \
+        --slurpfile js "$js_files" \
+        --slurpfile ep "$sensitive_files" \
+        --slurpfile sec "$secrets" \
+        --slurpfile leaks "$outdir/leaks.txt" \
+        --slurpfile params "$params_file" \
+        --slurpfile xnf "$xnf_file" \
+        '{urls: $urls[0], js: $js[0], endpoints: $ep[0], secrets: $sec[0], leaks: $leaks[0], params: $params[0], linkfinder_ext: $xnf[0]}' > "$finaldir/step_url_analysis.json" || true
 }
 
 # ----------- PIPELINE -----------
 info "Starting reconnaissance for: $domain"
 run_subfinder
-# run_assetfinder
-# run_github
-# run_chaos_dump
-# run_chaos2
-# run_crtsh
+run_assetfinder
+run_github
+run_chaos_dump
+run_chaos2
+run_crtsh
 
 sort -u "$final_output" -o "$final_output"
 info "Total unique subdomains: $(wc -l < "$final_output")"
