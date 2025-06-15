@@ -82,32 +82,22 @@ install_xnlinkfinder() {
 }
 
 install_shodan() {
-    if ! command -v shodan &> /dev/null || [[ "$(command -v shodan)" == "/usr/bin/shodan" ]]; then
-        info "Installing Shodan CLI via pipx..."
+    if ! command -v shodan &> /dev/null || [[ "$(which shodan)" == "/usr/bin/shodan" ]]; then
+        info "Installing Shodan CLI using pip (user mode)..."
+        
+        # Install Shodan CLI via pip (user install)
+        python3 -m pip install --upgrade --user shodan
 
-        # Remove broken APT version if it exists
-        if [[ -f "/usr/bin/shodan" ]]; then
-            warn "Removing outdated APT-installed shodan..."
-            sudo apt remove -y python3-shodan
-            sudo rm -f /usr/bin/shodan
+        # Check if CLI script was created
+        if [ ! -f "$HOME/.local/bin/shodan" ]; then
+            warn "Shodan CLI not found in ~/.local/bin, something went wrong."
+        else
+            success "Shodan CLI installed successfully with pip"
         fi
-
-        # Ensure pipx is installed
-        sudo apt install -y pipx python3-venv
-        export PATH="$HOME/.local/bin:$PATH"
-        if ! grep -q "$HOME/.local/bin" ~/.bashrc; then
-            echo 'export PATH=$PATH:$HOME/.local/bin' >> ~/.bashrc
-        fi
-
-        # Install fresh, isolated version
-        pipx install shodan
-
-        success "Shodan CLI installed and globally available via pipx"
     else
-        success "Shodan CLI is already installed and valid"
+        success "Shodan CLI is already installed and available"
     fi
 }
-
 
 install_go_if_needed() {
     MIN_GO_VERSION="1.23"
@@ -214,7 +204,7 @@ echo "   → Get your API key from: https://account.shodan.io/"
 echo -e "🔑 \033[1;36mCHAOS (ProjectDiscovery)\033[0m"
 echo "   → Requires CHAOS_API_KEY in your environment"
 echo "   → Export it like this:"
-echo "      export CHAOS_KEY='your-key-here'"
+echo "      export PDCP_API_KEY='your-key-here'"
 
 echo -e "🔑 \033[1;36mGITHUB-SUBDOMAINS\033[0m"
 echo "   → Requires GitHub API token with 'repo' scope"

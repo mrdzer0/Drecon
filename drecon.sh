@@ -385,11 +385,11 @@ run_naabu
 run_httpx
 run_nuclei
 run_shodan
-# run_waybackurls
-# run_gau
-# run_subzy
-# run_katana
-# run_url_analysis
+run_waybackurls
+run_gau
+run_subzy
+run_katana
+run_url_analysis
 
 info "Scan log saved to: $log_file"
 
