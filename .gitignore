@@ -1,0 +1,13 @@
+# Drecon Output Folders
+/output/
+
+# Temporary & System Files
+*.log
+*.tmp
+*.bak
+*.swp
+*.DS_Store
+*.out
+
+# API Key or Secret Files
+.env
