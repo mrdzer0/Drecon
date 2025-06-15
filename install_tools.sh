@@ -70,23 +70,32 @@ install_linkfinder() {
 }
 
 install_xnlinkfinder() {
-    if ! command -v xnLinkFinder &> /dev/null; then
-        info "Installing xnLinkFinder via pip..."
+    if ! command -v xnlinkfinder &> /dev/null; then
+        info "Installing xnLinkFinder in a virtual environment..."
+
+        # Prepare persistent install directory
+        XNFOLDER="$HOME/.local/share/xnlinkfinder"
+        mkdir -p "$XNFOLDER"
+
+        # Create virtual environment
+        python3 -m venv "$XNFOLDER/venv"
+        source "$XNFOLDER/venv/bin/activate"
+
+        # Install tool into venv
         pip install xnLinkFinder
 
-        # Ensure pip bin path is in PATH
-        PIP_BIN=$(python3 -m site --user-base)/bin
-        if ! echo "$PATH" | grep -q "$PIP_BIN"; then
-            echo "export PATH=\$PATH:$PIP_BIN" >> ~/.bashrc
-            export PATH=$PATH:$PIP_BIN
-            success "Added $PIP_BIN to PATH"
-        fi
+        # Create wrapper script globally
+        echo -e "#!/bin/bash\nsource \"$XNFOLDER/venv/bin/activate\" && xnlinkfinder \"\$@\"" \
+            | sudo tee /usr/local/bin/xnlinkfinder > /dev/null
+        sudo chmod +x /usr/local/bin/xnlinkfinder
 
-        success "xnLinkFinder installed and available as 'xnlinkfinder'"
+        deactivate
+        success "xnLinkFinder installed and callable as 'xnlinkfinder'"
     else
-        success "xnLinkFinder is already available as 'xnlinkfinder'"
+        success "xnLinkFinder is already installed"
     fi
 }
+
 
 install_shodan() {
     if ! command -v shodan &> /dev/null; then
