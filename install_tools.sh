@@ -99,10 +99,11 @@ install_shodan() {
     fi
 }
 
-install_go_if_needed() {
+install_go() {
     MIN_GO_VERSION="1.23"
+    GO_VERSION="1.23.10"
 
-    # Check if Go exists and meets the version requirement
+    # Check if go already exists and is sufficient
     if command -v go &> /dev/null; then
         CURRENT=$(go version | awk '{print $3}' | sed 's/go//')
         if [ "$(printf '%s\n' "$MIN_GO_VERSION" "$CURRENT" | sort -V | head -n1)" = "$MIN_GO_VERSION" ]; then
@@ -112,10 +113,10 @@ install_go_if_needed() {
             warn "Go version $CURRENT is too old, upgrading..."
         fi
     else
-        info "Go not detected, proceeding with installation..."
+        info "Go not detected, proceeding with user-space installation..."
     fi
 
-    # Download & install Go
+    # Determine architecture
     ARCH=$(uname -m)
     case "$ARCH" in
         x86_64) ARCH=amd64 ;;
@@ -123,45 +124,33 @@ install_go_if_needed() {
         *) echo "Unsupported architecture: $ARCH" && exit 1 ;;
     esac
 
-    GO_VERSION="1.23.10"
+    # Download and extract Go to ~/go-sdk
     GO_TAR="go${GO_VERSION}.linux-${ARCH}.tar.gz"
     wget "https://go.dev/dl/${GO_TAR}"
-    rm -rf /usr/local/go
-    tar -C /usr/local -xzf "$GO_TAR"
+    rm -rf "$HOME/go-sdk"
+    mkdir -p "$HOME/go-sdk"
+    tar -C "$HOME/go-sdk" --strip-components=1 -xzf "$GO_TAR"
     rm "$GO_TAR"
 
-    # Update path for current session (immediate)
-    export PATH="/usr/local/go/bin:$PATH"
+    # Set environment variables
+    export GOROOT="$HOME/go-sdk"
+    export GOPATH="$HOME/go"
+    export GOBIN="$GOPATH/bin"
+    export PATH="$GOROOT/bin:$GOBIN:$PATH"
 
-    # Add to system-wide profile for future shells
-    if ! grep -q "/usr/local/go/bin" /etc/profile; then
-        echo 'export PATH=$PATH:/usr/local/go/bin' >> /etc/profile
+    # Persist to .bashrc if not already present
+    if ! grep -q "go-sdk" ~/.bashrc; then
+        echo 'export GOROOT=$HOME/go-sdk' >> ~/.bashrc
+        echo 'export GOPATH=$HOME/go' >> ~/.bashrc
+        echo 'export GOBIN=$GOPATH/bin' >> ~/.bashrc
+        echo 'export PATH=$GOROOT/bin:$GOBIN:$PATH' >> ~/.bashrc
     fi
 
-    # Also update root's bashrc for sudo/root users
-    if [ "$EUID" -eq 0 ] && ! grep -q "/usr/local/go/bin" ~/.bashrc; then
-        echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
-    fi
-
-    # Confirm install
+    # Verify installation
     go version || { echo "❌ Go install failed"; exit 1; }
 
-    success "Go $GO_VERSION installed and available"
+    success "Go $GO_VERSION installed in user-space and configured for ~/go/bin"
 }
-
-
-
-# === SET GO ENV VARIABLES ===
-install_go_if_needed
-export GOPATH="$HOME/go"
-export GOBIN="$GOPATH/bin"
-export PATH="$PATH:$GOBIN"
-
-if ! grep -q 'export GOBIN=' ~/.bashrc; then
-    echo "export GOPATH=\$HOME/go" >> ~/.bashrc
-    echo "export GOBIN=\$GOPATH/bin" >> ~/.bashrc
-    echo "export PATH=\$PATH:\$GOBIN" >> ~/.bashrc
-fi
 
 # === TOOL INSTALLATION FUNCTION ===
 install_tool() {
