@@ -10,7 +10,7 @@ warn()    { echo -e "\033[1;33m[WARN]\033[0m $1"; }
 # === SYSTEM PREP ===
 info "Installing core system dependencies..."
 sudo apt update -y
-sudo apt install -y curl wget git unzip jq whois libpcap-dev build-essential libpcap-dev pkg-config python3 python3-pip
+sudo apt install -y curl wget git unzip jq whois libpcap-dev build-essential libpcap-dev pkg-config python3 python3-pip pipx python3-venv
 
 # Ensure ~/.local/bin (pip user installs) is in PATH
 PIP_BIN="$HOME/.local/bin"
