@@ -53,8 +53,6 @@ install_linkfinder() {
     fi
 }
 
-
-
 install_xnlinkfinder() {
     if ! command -v xnLinkFinder &> /dev/null; then
         info "Installing xnLinkFinder via pip..."
@@ -74,6 +72,24 @@ install_xnlinkfinder() {
     fi
 }
 
+install_shodan() {
+    if ! command -v shodan &> /dev/null; then
+        info "Installing Shodan CLI via pip..."
+        pip install --user shodan
+
+        # Ensure pip user bin is in PATH
+        PIP_BIN=$(python3 -m site --user-base)/bin
+        if ! echo "$PATH" | grep -q "$PIP_BIN"; then
+            echo "export PATH=\$PATH:$PIP_BIN" >> ~/.bashrc
+            export PATH=$PATH:$PIP_BIN
+            success "Added $PIP_BIN to PATH"
+        fi
+
+        success "Shodan CLI installed and available as 'shodan'"
+    else
+        success "Shodan CLI is already available as 'shodan'"
+    fi
+}
 
 
 if go_needs_update; then
@@ -132,7 +148,6 @@ install_tool subfinder github.com/projectdiscovery/subfinder/v2/cmd/subfinder
 install_tool assetfinder github.com/tomnomnom/assetfinder
 install_tool chaos github.com/projectdiscovery/chaos-client/cmd/chaos
 install_tool github-subdomains github.com/gwen001/github-subdomains
-install_tool shodan github.com/shodan-io/shodan/cli/shodan
 install_tool dnsx github.com/projectdiscovery/dnsx/cmd/dnsx
 install_tool naabu github.com/projectdiscovery/naabu/v2/cmd/naabu
 install_tool httpx github.com/projectdiscovery/httpx/cmd/httpx
