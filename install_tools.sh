@@ -10,7 +10,15 @@ warn()    { echo -e "\033[1;33m[WARN]\033[0m $1"; }
 # === SYSTEM PREP ===
 info "Installing core system dependencies..."
 sudo apt update -y
-sudo apt install -y curl wget git unzip jq whois libpcap-dev build-essential libpcap-dev pkg-config
+sudo apt install -y curl wget git unzip jq whois libpcap-dev build-essential libpcap-dev pkg-config python3 python3-pip
+
+# Ensure ~/.local/bin (pip user installs) is in PATH
+PIP_BIN="$HOME/.local/bin"
+if ! echo "$PATH" | grep -q "$PIP_BIN"; then
+    export PATH="$PATH:$PIP_BIN"
+    echo "export PATH=\$PATH:$PIP_BIN" >> ~/.bashrc
+    success "Added $PIP_BIN to PATH"
+fi
 
 # === GO CHECK & CONDITIONAL INSTALL ===
 MIN_GO_VERSION="1.23"
@@ -181,7 +189,7 @@ install_tool httpx github.com/projectdiscovery/httpx/cmd/httpx
 install_tool nuclei github.com/projectdiscovery/nuclei/v3/cmd/nuclei
 install_tool gau github.com/lc/gau/v2/cmd/gau
 install_tool waybackurls github.com/tomnomnom/waybackurls
-install_tool subzy github.com/LukaSikic/subzy
+install_tool subzy github.com/PentestPad/subzy
 install_tool katana github.com/projectdiscovery/katana/cmd/katana
 install_linkfinder
 install_xnlinkfinder
