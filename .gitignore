@@ -1,5 +1,6 @@
 # Drecon Output Folders
 /output/
+staging.sh
 
 # Temporary & System Files
 *.log
