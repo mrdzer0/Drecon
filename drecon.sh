@@ -369,11 +369,11 @@ run_url_analysis() {
 # ----------- PIPELINE -----------
 info "Starting reconnaissance for: $domain"
 run_subfinder
-# run_assetfinder
-# run_github
-# run_chaos_dump
-# run_chaos2
-# run_crtsh
+run_assetfinder
+run_github
+run_chaos_dump
+run_chaos2
+run_crtsh
 
 sort -u "$final_output" -o "$final_output"
 info "Total unique subdomains: $(wc -l < "$final_output")"
@@ -381,15 +381,15 @@ info "Output saved to: $final_output"
 echo "=========================================="
 info "Running Phase 2"
 run_dnsx
-# run_naabu
+run_naabu
 run_httpx
-# run_nuclei
+run_nuclei
 run_shodan
-# run_waybackurls
-# run_gau
-# run_subzy
-# run_katana
-# run_url_analysis
+run_waybackurls
+run_gau
+run_subzy
+run_katana
+run_url_analysis
 
 info "Scan log saved to: $log_file"
 
