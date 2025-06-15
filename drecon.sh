@@ -1,5 +1,6 @@
 #!/bin/bash
-set -e
+set -Eeuo pipefail
+trap 'echo "[!] Error at line $LINENO"' ERR
 
 start_time=$(date +%s)  # Start time
 # ----------- BASIC SETUP -----------
@@ -100,6 +101,11 @@ if [[ -f ".env" ]]; then
   set +o allexport
 fi
 
+# Cleanup empty files in URL analysis output
+cleanup_empty_txt_files() {
+  find "$outdir" -type f -name '*.txt' -size 0 -exec rm -f {} +
+}
+
 # ----------- LOGGED RUN WRAPPER -----------
 run() {
   log "Running: $*"
@@ -177,15 +183,32 @@ run_crtsh() {
 
 # ----------- DNSX ENHANCED -----------
 run_dnsx() {
-  local json="$outdir/dnsx_records.json" cname="$outdir/dnsx_cnames.txt" takeover="$outdir/potential_takeovers.txt"
-  run "dnsx -l $final_output -a -cname -resp -json -silent -o $json"
+  info "Running DNSX for DNS records and takeover detection..."
+  local json="$outdir/dnsx_records.json"
+  local cname="$outdir/dnsx_cnames.txt"
+  local takeover="$outdir/dnsx_potential_takeovers.txt"
+  local resolvable="$outdir/dnsx_resolvable.txt"
+
+  run "dnsx -l $final_output -a -cname -resp -silent -json -o $json"
+
   [[ -s "$json" ]] || { info "DNSX returned no usable data"; return; }
+
+  # Simpan hanya yang resolvable
+  jq -r 'select(.a != null) | .host' "$json" | sort -u > "$resolvable"
+
+  # Ekstrak CNAME dan identifikasi potensi takeover
   jq -r 'select(.cname != null) | "\(.host)\t\(.cname)"' "$json" > "$cname" 2>>"$log_file"
   local cname_count=$(wc -l < "$cname" 2>/dev/null || echo 0)
   info "CNAME entries extracted: $cname_count"
-  grep -Ei 's3\.amazonaws\.com|github\.io|herokuapp\.com|surge\.sh|fastly\.net' "$cname" > "$takeover" 2>/dev/null || true
+
+  grep -Ei 's3\.amazonaws\.com|github\.io|herokuapp\.com|surge\.sh|fastly\.net|shopify\.com|wordpress\.com|pantheon\.io|cloudfront\.net' "$cname" > "$takeover" 2>/dev/null || true
   local takeover_count=$(wc -l < "$takeover" 2>/dev/null || echo 0)
   info "Potential subdomain takeovers: $takeover_count"
+
+  # Cleanup jika file kosong
+  [[ ! -s "$cname" ]] && rm -f "$cname"
+  [[ ! -s "$takeover" ]] && rm -f "$takeover"
+  [[ ! -s "$resolvable" ]] && rm -f "$resolvable"
 }
 
 # ----------- NAABU WEB PORT SCAN -----------
@@ -231,9 +254,9 @@ run_nuclei() {
 
   jq -r '.url' "$outdir/httpx_subdomain_results.json" "$outdir/httpx_portscan_results.json" | sort -u > "$merged_httpx"
 
-  cmd="nuclei -l $merged_httpx -jsonl -o $nuclei_json"
-  [[ -n "$NUCLEI_SEVERITY" ]] && cmd+=" -severity $NUCLEI_SEVERITY"
-  [[ -n "$NUCLEI_TAGS" ]] && cmd+=" -tags $NUCLEI_TAGS"
+  cmd="nuclei -l $merged_httpx -jsonl -o $nuclei_json -id waf-detect"
+  # [[ -n "$NUCLEI_SEVERITY" ]] && cmd+=" -severity $NUCLEI_SEVERITY"
+  # [[ -n "$NUCLEI_TAGS" ]] && cmd+=" -tags $NUCLEI_TAGS"
   [[ -n "$NUCLEI_RATE_LIMIT" ]] && cmd+=" -rl $NUCLEI_RATE_LIMIT"
   [[ -n "$NUCLEI_TIMEOUT" ]] && cmd+=" -timeout $NUCLEI_TIMEOUT"
   [[ -n "$NUCLEI_RETRIES" ]] && cmd+=" -retries $NUCLEI_RETRIES"
@@ -286,8 +309,8 @@ run_gau() {
 # ----------- SUBZY -----------
 run_subzy() {
   info "Running Subzy..."
-  run "subzy run --targets $final_output --verify-ssl --hide_fails --output $outdir/subzy.txt"
-  info "Subzy completed: $(wc -l < $outdir/subzy.txt) results"
+  run "subzy run --targets $final_output --verify_ssl --hide_fails --output $outdir/subzy.json"
+  info "Subzy completed: $(wc -l < $outdir/subzy.json) results"
 }
 
 # ----------- KATANA -----------
@@ -317,11 +340,11 @@ run_url_analysis() {
 
   grep -Ei '\.js(\?|$)' "$all_urls" | sort -u > "$js_files" || true
   # Extract potential endpoint-like strings from JS or URLs
-  grep -Eoi '(/[a-z0-9_-]+){2,}' "$js_files" | sort -u > "$sensitive_files" || true
-  grep -Ei '\.(env|git|bak|swp|zip|sql|conf|log)$|/(admin|login|debug|api|config)' "$all_urls" > "$outdir/leaks.txt" || true
-  grep -Ei 'token=|apikey=|secret=|access[_-]?token=|bearer' "$all_urls" > "$secrets" || true
-  grep -Eo '\?.*' "$all_urls" | tr '&' '\n' | sed 's/^.*[?&]\([^=]*\)=.*/\1/' | grep -v '^$' | sort -u > "$params_file"
-  
+  [[ -s "$js_files" ]] && grep -Eoi '(/[a-z0-9_-]+){2,}' "$js_files" | sort -u > "$sensitive_files" || true
+  [[ -s "$all_urls" ]] && grep -Ei '\.(env|git|bak|swp|zip|sql|conf|log)$|/(admin|login|debug|api|config)' "$all_urls" > "$outdir/leaks.txt" || true
+  [[ -s "$all_urls" ]] && grep -Ei 'token=|apikey=|secret=|access[_-]?token=|bearer' "$all_urls" > "$secrets" || true
+  [[ -s "$all_urls" ]] && grep -Eo '\?.*' "$all_urls" | tr '&' '\n' | sed 's/^.*[?&]\([^=]*\)=.*/\1/' | grep -v '^$' | sort -u > "$params_file" || true
+
   info "JS files: $(wc -l < "$js_files")"
   info "Sensitive endpoints: $(wc -l < "$sensitive_files")"
   info "Potential secrets: $(wc -l < "$secrets")"
@@ -357,7 +380,7 @@ run_url_analysis() {
         --slurpfile leaks "$outdir/leaks.txt" \
         --slurpfile params "$params_file" \
         --slurpfile xnf "$xnf_file" \
-        '{urls: $urls[0], js: $js[0], endpoints: $ep[0], secrets: $sec[0], leaks: $leaks[0], params: $params[0], linkfinder_ext: $xnf[0]}' > "$finaldir/step_url_analysis.json" || true
+        '{urls: $urls[0], js: $js[0], endpoints: $ep[0], secrets: $sec[0], leaks: $leaks[0], params: $params[0], linkfinder_ext: $xnf[0]}' > "$final_dir/step_url_analysis.json" || true
 }
 
 # ----------- PIPELINE -----------
@@ -425,4 +448,5 @@ jq -n --arg domain "$domain" \
       --arg duration "$duration_str" \
       '{domain: $domain, subdomains: $subs, open_ports: $ports, live_hosts: $live, vulnerabilities: {info: $info, low: $low, medium: $medium, high: $high, critical: $critical}, scan_duration: $duration}' > "$stats_file"
 
+cleanup_empty_txt_files
 info "Stats saved to: $stats_file"
