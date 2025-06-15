@@ -143,26 +143,6 @@ run_shodan() {
   fi
 
   info "Shodan CLI results saved: $(wc -l < "$shodan_out")"
-
-  if [[ ! -f "$outdir/subdomain_port.txt" ]]; then
-    info "subdomain_port.txt not found, skipping host enrichment"
-    return 0
-  fi
-
-
-  while read -r ip; do
-    # Only run if it's a valid IPv4
-    if [[ "$ip" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
-      if ! shodan host "$ip" --history --verbose >> "$shodan_json" 2>> "$log_file"; then
-        echo "[!] Shodan lookup failed for $ip" >> "$log_file"
-      fi
-    fi
-  done < <(cut -d':' -f1 "$outdir/subdomain_port.txt" | grep -Eo '([0-9]{1,3}\.){3}[0-9]{1,3}' | sort -u)
-
-  if [[ -s "$shodan_json" ]]; then
-    local enriched=$(jq -s 'length' "$shodan_json" 2>/dev/null || echo 0)
-    info "Shodan IP data enriched: $enriched entries"
-  fi
 }
 
 # ----------- CHAOS -----------
