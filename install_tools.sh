@@ -28,20 +28,26 @@ go_needs_update() {
 install_linkfinder() {
     if ! command -v linkfinder &> /dev/null; then
         info "Installing LinkFinder..."
+        rm -f /usr/local/bin/linkfinder  # Remove broken symlink if exists
+
+        # Clone to temp, install requirements
         git clone https://github.com/GerbenJavado/LinkFinder.git /tmp/LinkFinder
         cd /tmp/LinkFinder
-        pip install -r requirements.txt
+        pip install --user -r requirements.txt
 
-        sudo ln -sf "$(pwd)/linkfinder.py" /usr/local/bin/linkfinder
-        chmod +x /usr/local/bin/linkfinder
+        # Create a wrapper shell script so `linkfinder` behaves like a CLI tool
+        echo -e "#!/bin/bash\npython3 $(pwd)/linkfinder.py \"\$@\"" | sudo tee /usr/local/bin/linkfinder > /dev/null
+        sudo chmod +x /usr/local/bin/linkfinder
 
         cd ~
         rm -rf /tmp/LinkFinder
-        success "LinkFinder installed and symlinked to /usr/local/bin/linkfinder"
+
+        success "LinkFinder installed and available as 'linkfinder'"
     else
         success "LinkFinder is already available as 'linkfinder'"
     fi
 }
+
 
 install_xnlinkfinder() {
     if ! command -v xnlinkfinder &> /dev/null; then
