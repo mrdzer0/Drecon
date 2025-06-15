@@ -10,10 +10,10 @@ warn()    { echo -e "\033[1;33m[WARN]\033[0m $1"; }
 # === SYSTEM PREP ===
 info "Installing core system dependencies..."
 sudo apt update -y
-sudo apt install -y curl wget git unzip jq whois libpcap-dev
+sudo apt install -y curl wget git unzip jq whois libpcap-dev build-essential libpcap-dev pkg-config
 
 # === GO CHECK & CONDITIONAL INSTALL ===
-MIN_GO_VERSION="1.20"
+MIN_GO_VERSION="1.23"
 
 go_needs_update() {
     local current
@@ -93,7 +93,7 @@ install_shodan() {
 
 
 install_go_if_needed() {
-    MIN_GO_VERSION="1.20"
+    MIN_GO_VERSION="1.23"
 
     # Check if Go exists and meets the version requirement
     if command -v go &> /dev/null; then
@@ -116,7 +116,7 @@ install_go_if_needed() {
         *) echo "Unsupported architecture: $ARCH" && exit 1 ;;
     esac
 
-    GO_VERSION="1.22.3"
+    GO_VERSION="1.23.10"
     GO_TAR="go${GO_VERSION}.linux-${ARCH}.tar.gz"
     wget "https://go.dev/dl/${GO_TAR}"
     rm -rf /usr/local/go
