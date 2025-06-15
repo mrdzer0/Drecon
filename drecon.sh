@@ -339,7 +339,9 @@ run_url_analysis() {
     xnLinkFinder -i "$outdir/jsparsed/$fname.js" >> "$xnf_file" 2>/dev/null || true
   done < "$js_files"
 
-  mv "$outdir/gau.txt", "$outdir/waybackurls.txt", "$outdir/katana.txt", "$outdir/httpx_subdomain_results.json", "$outdir/httpx_portscan_results.json" "$raw_dir/" 2>/dev/null || true 
+  for f in gau.txt waybackurls.txt katana.txt httpx_subdomain_results.json httpx_portscan_results.json; do
+    [[ -f "$outdir/$f" ]] && mv "$outdir/$f" "$raw_dir/" 2>/dev/null || true
+  done
 
   # CATEGORIZE URLS
   mkdir -p "$outdir/urls_category"
