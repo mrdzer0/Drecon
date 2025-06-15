@@ -95,19 +95,20 @@ install_shodan() {
 install_go_if_needed() {
     MIN_GO_VERSION="1.20"
 
-    # Extract current version (if exists)
+    # Check if Go exists and meets the version requirement
     if command -v go &> /dev/null; then
         CURRENT=$(go version | awk '{print $3}' | sed 's/go//')
         if [ "$(printf '%s\n' "$MIN_GO_VERSION" "$CURRENT" | sort -V | head -n1)" = "$MIN_GO_VERSION" ]; then
             success "Go version $CURRENT is already installed"
             return
         else
-            warn "Go version $CURRENT is outdated, upgrading..."
+            warn "Go version $CURRENT is too old, upgrading..."
         fi
     else
-        info "Go is not installed, proceeding with installation..."
+        info "Go not detected, proceeding with installation..."
     fi
 
+    # Download & install Go
     ARCH=$(uname -m)
     case "$ARCH" in
         x86_64) ARCH=amd64 ;;
@@ -117,27 +118,30 @@ install_go_if_needed() {
 
     GO_VERSION="1.22.3"
     GO_TAR="go${GO_VERSION}.linux-${ARCH}.tar.gz"
-
-    wget https://go.dev/dl/$GO_TAR
-    sudo rm -rf /usr/local/go
-    sudo tar -C /usr/local -xzf "$GO_TAR"
+    wget "https://go.dev/dl/${GO_TAR}"
+    rm -rf /usr/local/go
+    tar -C /usr/local -xzf "$GO_TAR"
     rm "$GO_TAR"
 
-    # Set PATH immediately
-    export PATH=$PATH:/usr/local/go/bin
+    # Update path for current session (immediate)
+    export PATH="/usr/local/go/bin:$PATH"
 
-    # Add to /etc/profile for all users
+    # Add to system-wide profile for future shells
     if ! grep -q "/usr/local/go/bin" /etc/profile; then
-        echo 'export PATH=$PATH:/usr/local/go/bin' | sudo tee -a /etc/profile > /dev/null
+        echo 'export PATH=$PATH:/usr/local/go/bin' >> /etc/profile
     fi
 
-    # Add for root user explicitly if script run as root
+    # Also update root's bashrc for sudo/root users
     if [ "$EUID" -eq 0 ] && ! grep -q "/usr/local/go/bin" ~/.bashrc; then
         echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
     fi
 
-    success "Go $GO_VERSION installed and added to PATH"
+    # Confirm install
+    go version || { echo "❌ Go install failed"; exit 1; }
+
+    success "Go $GO_VERSION installed and available"
 }
+
 
 
 # === SET GO ENV VARIABLES ===
