@@ -34,8 +34,10 @@ fi
 
 outdir="output/$domain"
 final_dir="$outdir/final"
+urlinfo_dir="$outdir/urlinfo"
 raw_dir="$outdir/raw"
-mkdir -p "$outdir" "$final_dir"
+
+mkdir -p "$outdir" "$final_dir" "$urlinfo_dir" "$raw_dir"
 final_output="$outdir/subdomain.txt"
 log_file="$outdir/scan.log"
 stats_file="$outdir/stats.json"
@@ -302,12 +304,12 @@ run_katana() {
 # ----------- URL ANALYSIS -----------
 run_url_analysis() {
   info "Analyzing collected URLs and JS..."
-  local all_urls="$outdir/all_urls.txt"
-  local js_files="$outdir/javascript_files.txt"
-  local sensitive_files="$outdir/sensitive_endpoints.txt"
-  local secrets="$outdir/potential_secrets.txt"
-  local params_file="$outdir/parameters.txt"
-  local xnf_file="$outdir/xnlinkfinder.txt"
+  local all_urls="$urlinfo_dir/all_urls.txt"
+  local js_files="$urlinfo_dir/javascript_files.txt"
+  local sensitive_files="$urlinfo_dir/sensitive_endpoints.txt"
+  local secrets="$urlinfo_dir/potential_secrets.txt"
+  local params_file="$urlinfo_dir/parameters.txt"
+  local xnf_file="$urlinfo_dir/xnlinkfinder.txt"
 
   # Archive.org URL discovery
   curl -s "http://web.archive.org/cdx/search/cdx?url=*.$domain/*&output=text&fl=original&collapse=urlkey" | tee "$outdir/archive_urls.txt" >> "$all_urls"
@@ -363,6 +365,29 @@ run_url_analysis() {
         '{urls: $urls[0], js: $js[0], endpoints: $ep[0], secrets: $sec[0], leaks: $leaks[0], params: $params[0], linkfinder_ext: $xnf[0]}' > "$final_dir/step_url_analysis.json" || true
 }
 
+# ------------- ENHANCED SENSITIVE URL EXTRACTION -------------
+run_enhanced_url_indicators() {
+  info "Analyzing sensitive indicators in URLs..."
+  local reasons_file="$urlinfo_dir/url_indicator_reasons.txt"
+  local input_file="$urlinfo_dir/all_urls.txt"
+  > "$reasons_file"
+
+  declare -A patterns=(
+    [env]='\\.(env|git|bak|swp|zip|sql|conf|log)$'
+    [endpoint]='/[a-z0-9_-]+(/[a-z0-9_-]+)+'
+    [leak]='/admin|/login|/debug|/api|/config'
+    [token]='token=|apikey=|secret=|access[_-]?token=|bearer'
+  )
+
+  for keyword in "${!patterns[@]}"; do
+    grep -iE "${patterns[$keyword]}" "$input_file" | while read -r line; do
+      echo "$keyword - $line" >> "$reasons_file"
+    done
+  done
+
+  [[ -s "$reasons_file" ]] && info "Tagged URLs saved to: $reasons_file"
+}
+
 # ----------- PIPELINE -----------
 info "Starting reconnaissance for: $domain"
 run_subfinder
@@ -387,6 +412,7 @@ run_gau
 run_subzy
 run_katana
 run_url_analysis
+run_enhanced_url_indicators
 
 info "Scan log saved to: $log_file"
 
