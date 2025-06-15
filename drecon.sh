@@ -183,32 +183,15 @@ run_crtsh() {
 
 # ----------- DNSX ENHANCED -----------
 run_dnsx() {
-  info "Running DNSX for DNS records and takeover detection..."
-  local json="$outdir/dnsx_records.json"
-  local cname="$outdir/dnsx_cnames.txt"
-  local takeover="$outdir/dnsx_potential_takeovers.txt"
-  local resolvable="$outdir/dnsx_resolvable.txt"
-
-  run "dnsx -l $final_output -a -cname -resp -silent -json -o $json"
-
+  local json="$outdir/dnsx_records.json" cname="$outdir/dnsx_cnames.txt" takeover="$outdir/dnsx_potential_takeovers.txt"More actions
+  run "dnsx -l $final_output -a -cname -resp -json -silent -o $json"
   [[ -s "$json" ]] || { info "DNSX returned no usable data"; return; }
-
-  # Simpan hanya yang resolvable
-  jq -r 'select(.a != null) | .host' "$json" | sort -u > "$resolvable"
-
-  # Ekstrak CNAME dan identifikasi potensi takeover
   jq -r 'select(.cname != null) | "\(.host)\t\(.cname)"' "$json" > "$cname" 2>>"$log_file"
   local cname_count=$(wc -l < "$cname" 2>/dev/null || echo 0)
   info "CNAME entries extracted: $cname_count"
-
-  grep -Ei 's3\.amazonaws\.com|github\.io|herokuapp\.com|surge\.sh|fastly\.net|shopify\.com|wordpress\.com|pantheon\.io|cloudfront\.net' "$cname" > "$takeover" 2>/dev/null || true
+  grep -Ei 's3\.amazonaws\.com|github\.io|herokuapp\.com|surge\.sh|fastly\.net' "$cname" > "$takeover" 2>/dev/null || true
   local takeover_count=$(wc -l < "$takeover" 2>/dev/null || echo 0)
   info "Potential subdomain takeovers: $takeover_count"
-
-  # Cleanup jika file kosong
-  [[ ! -s "$cname" ]] && rm -f "$cname"
-  [[ ! -s "$takeover" ]] && rm -f "$takeover"
-  [[ ! -s "$resolvable" ]] && rm -f "$resolvable"
 }
 
 # ----------- NAABU WEB PORT SCAN -----------
@@ -309,7 +292,7 @@ run_gau() {
 # ----------- SUBZY -----------
 run_subzy() {
   info "Running Subzy..."
-  run "subzy run --targets $final_output --verify_ssl --hide_fails --output $outdir/subzy.json"
+  run "subzy run --targets $final_output --verify_ssl --hide_fails --output $outdir/subzy_subdomaintakeover.json"
   info "Subzy completed: $(wc -l < $outdir/subzy.json) results"
 }
 
@@ -386,11 +369,11 @@ run_url_analysis() {
 # ----------- PIPELINE -----------
 info "Starting reconnaissance for: $domain"
 run_subfinder
-run_assetfinder
-run_github
-run_chaos_dump
-run_chaos2
-run_crtsh
+# run_assetfinder
+# run_github
+# run_chaos_dump
+# run_chaos2
+# run_crtsh
 
 sort -u "$final_output" -o "$final_output"
 info "Total unique subdomains: $(wc -l < "$final_output")"
@@ -398,15 +381,15 @@ info "Output saved to: $final_output"
 echo "=========================================="
 info "Running Phase 2"
 run_dnsx
-run_naabu
+# run_naabu
 run_httpx
-run_nuclei
+# run_nuclei
 run_shodan
-run_waybackurls
-run_gau
-run_subzy
-run_katana
-run_url_analysis
+# run_waybackurls
+# run_gau
+# run_subzy
+# run_katana
+# run_url_analysis
 
 info "Scan log saved to: $log_file"
 
