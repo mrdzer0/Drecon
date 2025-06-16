@@ -206,11 +206,21 @@ run_crtsh() {
   else
     echo '[!] Gagal parse JSON dari crt.sh' >> "$out"
     echo '---[ JQ ERROR ]---' >> "$out"
-    cat /tmp/jq_error.log >> "$out"
-    echo '---[ RAW ]---' >> "$out"
-    cat /tmp/crtsh.json >> "$out"
-  fi
+    if [[ -f /tmp/jq_error.log ]]; then
+      cat /tmp/jq_error.log >> "$out"
+    else
+      echo "[!] File /tmp/jq_error.log tidak ditemukan (jq tidak error?)" >> "$out"
+    fi
 
+    echo '---[ RAW ]---' >> "$out"
+    if [[ -f /tmp/crtsh.json ]]; then
+      cat /tmp/crtsh.json >> "$out"
+    else
+      echo "[!] File /tmp/jq_error.log tidak ditemukan (jq tidak error?)" >> "$out"
+    fi
+
+  fi
+  rm -f /tmp/jq_error.log /tmp/crtsh.json /tmp/crt-reg.html 2>/dev/null
   merge_and_log "$out" "crt.sh"
 }
 
