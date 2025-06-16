@@ -180,9 +180,37 @@ run_chaos2() {
 run_crtsh() {
   local out="$outdir/crtsh.txt"
   > "$out"
-  local reg=$(whois "$domain" 2>/dev/null | grep -i "Registrant Organization" | cut -d ':' -f2- | xargs | sed 's/,/%2C/g; s/ /+/g')
-  [[ -n "$reg" ]] && run "curl -s \"https://crt.sh/?q=$reg\" | grep -Eo '<TD>[[:alnum:]\.-]+\.[[:alpha:]]{2,}</TD>' | sed 's/<TD>//;s/<\\/TD>//' >> $out"
-  run "curl -s \"https://crt.sh/?q=$domain&output=json\" | jq -r '.[].name_value' | sed 's/\\*\\.//g' >> $out"
+
+  # Ambil registrant lalu encode ke URL-safe
+  local raw_reg=$(whois "$domain" 2>/dev/null | grep -i "Registrant Organization" | cut -d ':' -f2- | xargs)
+  local reg=$(echo -n "$raw_reg" | jq -sRr @uri)
+
+  if [[ -n "$reg" ]]; then 
+      echo "[*] Registrant: $raw_reg (encoded: $reg)" >> "$out"
+      curl -s "https://crt.sh/?q=$reg" -o /tmp/crt-reg.html
+
+      if grep -q '<TD>' /tmp/crt-reg.html; then
+          grep -Eo '<TD>[[:alnum:]\.-]+\.[[:alpha:]]{2,}</TD>' /tmp/crt-reg.html \
+            | sed 's/<TD>//;s/<\/TD>//' >> "$out"
+      else
+          echo "[!] Tidak ditemukan <TD> dari hasil registrant" >> "$out"
+      fi
+  else
+      echo "[!] Registrant Organization not found from WHOIS" >> "$out"
+  fi
+  
+  run 'curl -s -m 10 -A "Mozilla/5.0" "https://crt.sh/?q='"$domain"'&output=json" -o /tmp/crtsh.json'
+
+  if [[ -s /tmp/crtsh.json ]] && jq empty /tmp/crtsh.json 2>/tmp/jq_error.log; then
+    jq -r '.[].name_value' /tmp/crtsh.json | sed 's/\*\.\?//g' >> "$out"
+  else
+    echo '[!] Gagal parse JSON dari crt.sh' >> "$out"
+    echo '---[ JQ ERROR ]---' >> "$out"
+    cat /tmp/jq_error.log >> "$out"
+    echo '---[ RAW ]---' >> "$out"
+    cat /tmp/crtsh.json >> "$out"
+  fi
+
   merge_and_log "$out" "crt.sh"
 }
 
