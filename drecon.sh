@@ -8,7 +8,7 @@ usage() {
   echo "Usage: $0 -d <domain> [--preset <bugbounty|stealth|fingerprinting>]"
   exit 1
 }
-preset="bugbounty"
+preset="basic"
 
 domain=""
 while [[ $# -gt 0 ]]; do
@@ -84,6 +84,14 @@ case "$preset" in
     export NUCLEI_TIMEOUT=8
     export NUCLEI_RETRIES=2
     export NUCLEI_USER_AGENT="Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
+    ;;
+  basic)
+    export NUCLEI_SEVERITY="info,low,medium,high,critical"
+    export NUCLEI_TAGS="cve,exposure,token,misconfig"
+    export NUCLEI_RATE_LIMIT=30
+    export NUCLEI_TIMEOUT=8
+    export NUCLEI_RETRIES=2
+    export NUCLEI_USER_AGENT="Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36"
     ;;
   *)
     echo "[!] Unknown preset: $preset"
@@ -236,7 +244,7 @@ run_nuclei() {
 
   cmd="nuclei -l $merged_httpx -jsonl -o $nuclei_json"
   [[ -n "$NUCLEI_SEVERITY" ]] && cmd+=" -severity $NUCLEI_SEVERITY"
-  [[ -n "$NUCLEI_TAGS" ]] && cmd+=" -tags $NUCLEI_TAGS"
+  # [[ -n "$NUCLEI_TAGS" ]] && cmd+=" -tags $NUCLEI_TAGS"
   [[ -n "$NUCLEI_RATE_LIMIT" ]] && cmd+=" -rl $NUCLEI_RATE_LIMIT"
   [[ -n "$NUCLEI_TIMEOUT" ]] && cmd+=" -timeout $NUCLEI_TIMEOUT"
   [[ -n "$NUCLEI_RETRIES" ]] && cmd+=" -retries $NUCLEI_RETRIES"
@@ -244,7 +252,7 @@ run_nuclei() {
   
   run "$cmd"
   info "Nuclei results saved: $(wc -l < $nuclei_json)"
-  rm -f "$merged_httpx"
+  # rm -f "$merged_httpx"
   
   # Bersihkan semua file severity
   for sev in info low medium high critical; do
