@@ -357,14 +357,23 @@ run_url_analysis() {
   info "Exposed files/leaks: $(wc -l < "$outdir/leaks.txt")"
   info "Extracted parameters: $(wc -l < "$params_file")"
 
-  jq -n --slurpfile urls "$all_urls" \
-        --slurpfile js "$js_files" \
-        --slurpfile ep "$sensitive_files" \
-        --slurpfile sec "$secrets" \
-        --slurpfile leaks "$outdir/leaks.txt" \
-        --slurpfile params "$params_file" \
-        --slurpfile xnf "$xnf_file" \
-        '{urls: $urls[0], js: $js[0], endpoints: $ep[0], secrets: $sec[0], leaks: $leaks[0], params: $params[0], linkfinder_ext: $xnf[0]}' > "$final_dir/step_url_analysis.json" || true
+  jq -n \
+    --argjson urls "$(jq -R -s -c 'split("\n") | map(select(length > 0))' "$all_urls")" \
+    --argjson js "$(jq -R -s -c 'split("\n") | map(select(length > 0))' "$js_files")" \
+    --argjson ep "$(jq -R -s -c 'split("\n") | map(select(length > 0))' "$sensitive_files")" \
+    --argjson sec "$(jq -R -s -c 'split("\n") | map(select(length > 0))' "$secrets")" \
+    --argjson leaks "$(jq -R -s -c 'split("\n") | map(select(length > 0))' "$outdir/leaks.txt")" \
+    --argjson params "$(jq -R -s -c 'split("\n") | map(select(length > 0))' "$params_file")" \
+    --argjson xnf "$(jq -R -s -c 'split("\n") | map(select(length > 0))' "$xnf_file")" \
+    '{
+      urls: $urls,
+      js: $js,
+      endpoints: $ep,
+      secrets: $sec,
+      leaks: $leaks,
+      params: $params,
+      linkfinder_ext: $xnf
+    }' > "$final_dir/step_url_analysis.json" || true
 }
 
 # ------------- ENHANCED SENSITIVE URL EXTRACTION -------------
