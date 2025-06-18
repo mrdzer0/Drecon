@@ -351,11 +351,13 @@ run_katana() {
 run_url_analysis() {
   info "Analyzing collected URLs and JS..."
   local all_urls="$urlinfo_dir/all_urls.txt"
-  local js_files="$urlinfo_dir/javascript_files.txt"
+  local js_files="$urlinfo_dir/javascript_raw.txt"
+  local js_live="$urlinfo_dir/javascript_live.txt"
   local sensitive_files="$urlinfo_dir/sensitive_endpoints.txt"
   local secrets="$urlinfo_dir/potential_secrets.txt"
   local params_file="$urlinfo_dir/parameters.txt"
   local xnf_file="$urlinfo_dir/xnlinkfinder.txt"
+
 
   # Archive.org URL discovery
   curl -s "http://web.archive.org/cdx/search/cdx?url=*.$domain/*&output=text&fl=original&collapse=urlkey" | tee "$outdir/archive_urls.txt" >> "$all_urls"
@@ -365,8 +367,16 @@ run_url_analysis() {
   cat "$outdir/httpx_subdomain_results.json" "$outdir/httpx_portscan_results.json" 2>/dev/null | jq -r '.url' | sort -u >> "$all_urls" 
 
   grep -Ei '\.js(\?|$)' "$all_urls" | sort -u > "$js_files" || true
+
+  # Filter only live JS URLs
+  httpx -l "$js_files" -status-code -follow-redirects -silent -timeout 5 | \
+    grep -E "\[2[0-9]{2}\]|\[3[0-9]{2}\]" | \
+    cut -d ' ' -f1 > "$js_live"
+  
+  [[ -s "$js_live" ]] && info "Live JS files saved: $(wc -l < "$js_live")"
+
   # Extract potential endpoint-like strings from JS or URLs
-  [[ -s "$js_files" ]] && grep -Eoi '(/[a-z0-9_-]+){2,}' "$js_files" | sort -u > "$sensitive_files" || true
+  [[ -s "$js_live" ]] && grep -Eoi '(/[a-z0-9_-]+){2,}' "$js_live" | sort -u > "$sensitive_files" || true
   [[ -s "$all_urls" ]] && grep -Ei '\.(env|git|bak|swp|zip|sql|conf|log)$|/(admin|login|debug|api|config)' "$all_urls" > "$outdir/leaks.txt" || true
   [[ -s "$all_urls" ]] && grep -Ei 'token=|apikey=|secret=|access[_-]?token=|bearer' "$all_urls" > "$secrets" || true
   [[ -s "$all_urls" ]] && grep -Eo '\?.*' "$all_urls" | tr '&' '\n' | sed 's/^.*[?&]\([^=]*\)=.*/\1/' | grep -v '^$' | sort -u > "$params_file" || true
