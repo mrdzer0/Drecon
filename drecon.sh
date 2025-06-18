@@ -481,8 +481,8 @@ subdomain_count=$(wc -l < "$final_output" | tr -d ' ')
 port_count=$(wc -l < "$outdir/subdomain_port.txt" 2>/dev/null || echo 0)
 live_count=$(
   {
-    jq -r '.url' "$outdir/httpx_subdomain_results.json" 2>/dev/null || true
-    jq -r '.url' "$outdir/httpx_portscan_results.json" 2>/dev/null || true
+    jq -r '.url' "$outdir/raw/httpx_subdomain_results.json" 2>/dev/null || true
+    jq -r '.url' "$outdir/raw/httpx_portscan_results.json" 2>/dev/null || true
   } | sort -u | wc -l | tr -d ' '
 )
 info_count=$(wc -l < "$outdir/nuclei/info.txt" 2>/dev/null || echo 0)
