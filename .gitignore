@@ -1,6 +1,7 @@
 # Drecon Output Folders
 /output/
 staging.sh
+repyth.py
 
 # Temporary & System Files
 *.log

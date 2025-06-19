@@ -369,7 +369,7 @@ run_url_analysis() {
   grep -Ei '\.js(\?|$)' "$all_urls" | sort -u > "$js_files" || true
 
   # Filter only live JS URLs
-  httpx -l "$js_files" -status-code -follow-redirects -silent -timeout 5 | \
+  httpx -l "$js_files" -status-code -follow-redirects -silent -nc -timeout 5 | \
     grep -E "\[2[0-9]{2}\]|\[3[0-9]{2}\]" | \
     cut -d ' ' -f1 > "$js_live"
   
@@ -476,7 +476,7 @@ run_dnsx
 run_naabu
 run_httpx
 run_nuclei
-run_shodan
+#run_shodan
 run_waybackurls
 run_gau
 run_subzy

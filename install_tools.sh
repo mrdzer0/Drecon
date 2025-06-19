@@ -87,6 +87,8 @@ install_tool() {
 
 # === INSTALL SHODAN CLI ===
 install_shodan() {
+    python3 -m venv myenv
+    source myenv/bin/activate
     info "Installing Shodan CLI using pip (user mode)..."
     sudo apt remove -y python3-shodan >/dev/null 2>&1 || true
     sudo rm -f /usr/bin/shodan
